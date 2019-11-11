@@ -3,9 +3,6 @@
 #include "ArduinoJson.h"
 #include "globals.h"
 
-//JSON
-StaticJsonDocument<300> doc;
-
 //Millis
 unsigned long PREV_TIME = 0;
 const long DURATION = 5000;
@@ -36,7 +33,7 @@ void callback(char *topic, byte *payload, unsigned int length) {
   Serial.println(message);
   Serial.println(length);
 
-  if(strcmp(message, "open") == 0){
+  if(strcmp(message, "ON") == 0){
     door_status = true;
   }
   else{
@@ -76,8 +73,17 @@ void connect_mqtt() {
   while (!client.connected()) {
     Serial.println("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("ESP8266 Ultra")) {
-      client.subscribe(door_sensor_topic);
+    if (client.connect("ESP8266 Ultra", mqtt_username, mqtt_password)) {
+      // Send Config to Home Assistant
+      DynamicJsonDocument doc(1024);
+      doc["name"] = "Car Distance";
+      doc["state_topic"] = on_off_topic;
+      
+      char buffer[1024];
+      serializeJson(doc, buffer);
+      client.publish(config_topic,buffer);
+      // Subscribe to state
+      client.subscribe(on_off_topic);
       Serial.println("Connected");
       } 
     else {
@@ -89,6 +95,7 @@ void connect_mqtt() {
 }
 
 void loop() {
+  DynamicJsonDocument doc(1024);
   unsigned long curr_time = millis();
   // put your main code here, to run repeatedly:
   if (!client.connected()) {
@@ -97,16 +104,16 @@ void loop() {
   client.loop();
   if(door_status){
     distance = calculate();
-    doc["data"] = distance;
+    doc["distance"] = distance;
     char buffer[512];
     size_t n = serializeJson(doc, buffer);
-    client.publish(light_topic, buffer, n);
+    client.publish(distance_topic, buffer, n);
   }
   if(!door_close_sent && !door_status){
-    doc["data"] = -1;
+    doc["distance"] = -1;
     char buffer[512];
     size_t n = serializeJson(doc, buffer);
-    client.publish(light_topic, buffer, n);
+    client.publish(distance_topic, buffer, n);
     door_close_sent = true;
   }
 }

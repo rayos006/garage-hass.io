@@ -1,6 +1,8 @@
 #include <ESP8266WiFi.h> 
 #include <PubSubClient.h>
+#include "ArduinoJson.h"
 #include "globals.h"
+
 //GPIO
 const int button = 12;
 void ICACHE_RAM_ATTR door_changed ();
@@ -23,12 +25,12 @@ void door_changed(){
     Serial.println(door_state);
   if (digitalRead(button) == 0){
     // Send closed to MQTT
-    client.publish(change_state_topic, "closed");
+    client.publish(hassio_state, "OFF");
     door_state = false;
   }
   else {
     // Send open to MQTT
-    client.publish(change_state_topic, "open");
+    client.publish(hassio_state, "ON");
     door_state = true;
   }
 }
@@ -65,7 +67,7 @@ void connect_mqtt() {
   while (!client.connected()) {
     Serial.println("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("ESP8266 Client")) {
+    if (client.connect("ESP8266 Client", mqtt_username, mqtt_password)) {
       Serial.println("Connected");
       } 
     else {
@@ -78,16 +80,32 @@ void connect_mqtt() {
 
 void loop() {
   unsigned long curr_time = millis();
+      // Send Config to Home Assistant
+      DynamicJsonDocument doc(1024);
+      doc["name"] = "Garage Door";
+      doc["device_class"] = "garage_door";
+      doc["state_topic"] = hassio_state;
+      char buffer[512];
+      size_t n = serializeJson(doc, buffer);
+      client.publish(hassio_config, buffer, n);
   if (!client.connected()) {
     connect_mqtt();
+    // Send Config to Home Assistant
+      DynamicJsonDocument doc(1024);
+      doc["name"] = "Garage Door";
+      doc["device_class"] = "garage_door";
+      doc["state_topic"] = hassio_state;
+      char buffer[1024];
+      serializeJson(doc, buffer);
+      client.publish(hassio_config,buffer);
   }
   client.loop();
   if(curr_time - PREV_TIME >= PERIOD) {
     if(door_state){
-      client.publish(periodic_topic, "open");
+      client.publish(hassio_state, "ON");
     }
     else {
-      client.publish(periodic_topic, "closed");
+      client.publish(hassio_state, "OFF");
   }
   PREV_TIME = curr_time;
   }

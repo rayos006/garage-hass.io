@@ -1,4 +1,4 @@
-#include <ESP8266WiFi.h>
+ #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include "ArduinoJson.h"
 #include "globals.h"
@@ -18,29 +18,34 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 void callback(char *topic, byte *payload, unsigned int length) {
-  //JSON
-  StaticJsonDocument<256> doc;
-  deserializeJson(doc, payload, length);
-
-  int distance = doc["data"];
-  Serial.println(distance);
-  if(distance == -1){
+  static char message[MAX_MSG_LEN+1];
+  if (length > MAX_MSG_LEN) {
+    length = MAX_MSG_LEN;
+  }
+  strncpy(message, (char *)payload, length);
+  message[length] = '\0';
+  if(strcmp(message, "OFF") == 0){
+    client.publish(state_topic, "OFF");
     flash_status = false;
     off();
   }
-  else if(distance > 10){
+  else if(strcmp(message, "green") == 0){
+    client.publish(state_topic, "ON");
     flash_status = false;
     green();
   }
-  else if(distance <= 10 && distance > 6){
+  else if(strcmp(message, "yellow") == 0){
+    client.publish(state_topic, "ON");
     flash_status = false;
      yellow();
   }
-  else if(distance <= 6 && distance > 3){
+  else if(strcmp(message, "red") == 0){
+    client.publish(state_topic, "ON");
     flash_status = false;
     red();
   }
   else {
+    client.publish(state_topic, "ON");
     flash_status = true;
   }
 }
@@ -77,9 +82,16 @@ void connect_mqtt() {
   while (!client.connected()) {
     Serial.println("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("ESP8266 Stoplight")) {
+    if (client.connect("ESP8266 Stoplight", mqtt_username, mqtt_password)) {
       client.subscribe(light_topic);
       Serial.println("Connected");
+      // Send Config to Home Assistant
+      DynamicJsonDocument doc(1024);
+      doc["name"] = "StopLight";
+      
+      char buffer[1024];
+      serializeJson(doc, buffer);
+      client.publish(config_topic,buffer);
       } 
     else {
       Serial.println("failed, rc=");
