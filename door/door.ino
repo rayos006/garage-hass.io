@@ -80,24 +80,16 @@ void connect_mqtt() {
 
 void loop() {
   unsigned long curr_time = millis();
+  if (!client.connected()) {
+    connect_mqtt();
       // Send Config to Home Assistant
-      DynamicJsonDocument doc(1024);
+      DynamicJsonDocument doc(512);
       doc["name"] = "Garage Door";
       doc["device_class"] = "garage_door";
-      doc["state_topic"] = hassio_state;
+      doc["state_topic"] = "homeassistant/binary_sensor/garage/door_sensor/state";
       char buffer[512];
       size_t n = serializeJson(doc, buffer);
       client.publish(hassio_config, buffer, n);
-  if (!client.connected()) {
-    connect_mqtt();
-    // Send Config to Home Assistant
-      DynamicJsonDocument doc(1024);
-      doc["name"] = "Garage Door";
-      doc["device_class"] = "garage_door";
-      doc["state_topic"] = hassio_state;
-      char buffer[1024];
-      serializeJson(doc, buffer);
-      client.publish(hassio_config,buffer);
   }
   client.loop();
   if(curr_time - PREV_TIME >= PERIOD) {

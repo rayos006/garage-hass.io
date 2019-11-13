@@ -78,6 +78,7 @@ void setup() {
 }
 
 void connect_mqtt() {
+  DynamicJsonDocument doc(512);
   // Loop until reconnected
   while (!client.connected()) {
     Serial.println("Attempting MQTT connection...");
@@ -86,12 +87,11 @@ void connect_mqtt() {
       client.subscribe(light_topic);
       Serial.println("Connected");
       // Send Config to Home Assistant
-      DynamicJsonDocument doc(1024);
-      doc["name"] = "StopLight";
-      
-      char buffer[1024];
-      serializeJson(doc, buffer);
-      client.publish(config_topic,buffer);
+      doc["name"] = "Garage Light";
+      //doc["state_topic"] = "homeassistant/binary_sensor/garage/distance_sensor/state";
+      char buffer[512];
+      size_t n = serializeJson(doc, buffer);
+      client.publish(config_topic, buffer, n);
       } 
     else {
       Serial.println("failed, rc=");

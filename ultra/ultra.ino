@@ -75,13 +75,6 @@ void connect_mqtt() {
     // Attempt to connect
     if (client.connect("ESP8266 Ultra", mqtt_username, mqtt_password)) {
       // Send Config to Home Assistant
-      DynamicJsonDocument doc(1024);
-      doc["name"] = "Car Distance";
-      doc["state_topic"] = on_off_topic;
-      
-      char buffer[1024];
-      serializeJson(doc, buffer);
-      client.publish(config_topic,buffer);
       // Subscribe to state
       client.subscribe(on_off_topic);
       Serial.println("Connected");
@@ -95,11 +88,22 @@ void connect_mqtt() {
 }
 
 void loop() {
-  DynamicJsonDocument doc(1024);
+  DynamicJsonDocument doc(512);
   unsigned long curr_time = millis();
   // put your main code here, to run repeatedly:
   if (!client.connected()) {
     connect_mqtt();
+          // Send Config to Home Assistant
+      doc["name"] = "Distance Sensor";
+      //doc["state_topic"] = "homeassistant/binary_sensor/garage/distance_sensor/state";
+      char buffer[512];
+      size_t n = serializeJson(doc, buffer);
+      client.publish(config_topic, buffer, n);
+      doc["name"] = "My Car";
+      doc["device_class"] = "occupancy";
+      //doc["state_topic"] = "homeassistant/binary_sensor/garage/distance_sensor/state";
+      size_t n = seriaizeJson(doc, buffer);
+      client.publish("homeassistant/binary_sensor/garage/car/config", buffer, n);
   }
   client.loop();
   if(door_status){
